@@ -1,22 +1,18 @@
-"""Roll_3d — офлайн-смета рольставенного шкафа. Только Windows 10 и 11, 64-bit."""
+"""Roll_3d — офлайн-смета рольставенного шкафа для Windows."""
 
 from __future__ import annotations
 
-import struct
-import sys
+import traceback
 
 import db
-from paths import log_exception, web_index
+from paths import report_error, web_index
 
 
 def _run() -> None:
+    import sys
+
     if sys.platform != "win32":
-        sys.stderr.write("Roll_3d запускается только на Windows 10 и 11, 64-bit.\n")
-        raise SystemExit(1)
-    if struct.calcsize("P") != 8:
-        sys.stderr.write(
-            "Нужен 64-bit Python. Установите Windows installer (64-bit) с python.org.\n"
-        )
+        report_error("Roll_3d запускается только на Windows.")
         raise SystemExit(1)
 
     import webview
@@ -25,7 +21,7 @@ def _run() -> None:
 
     index = web_index()
     if not index.is_file():
-        sys.stderr.write(f"Не найден интерфейс: {index}\n")
+        report_error(f"Не найден интерфейс: {index}")
         raise SystemExit(1)
 
     webview.settings["SHOW_DEFAULT_MENUS"] = False
@@ -48,13 +44,19 @@ def _run() -> None:
 
 
 def main() -> None:
+    import os
+    import sys
+
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
     try:
         _run()
     except SystemExit:
         raise
     except Exception:
-        log_exception()
-        sys.stderr.write("Roll_3d не запустился. Подробности в data\\roll_3d.log\n")
+        report_error(traceback.format_exc())
         raise SystemExit(1)
 
 
