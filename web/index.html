@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Roll_3d</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">Roll_3d</div>
+      <nav class="tabs" aria-label="Разделы">
+        <button type="button" data-tab="estimate" class="active">Смета</button>
+        <button type="button" data-tab="price">Прайс</button>
+        <button type="button" data-tab="settings">Настройки</button>
+      </nav>
+      <div class="spacer"></div>
+      <div class="active-price" id="active-price">Прайс не выбран</div>
+    </header>
+
+    <main>
+      <section id="view-estimate">
+        <div class="view3d" id="view3d">
+          <canvas id="cabinet"></canvas>
+          <div class="legend" id="legend"></div>
+          <button type="button" id="btn-reset-view" class="ghost view-reset">Сбросить вид</button>
+          <div class="view3d-hint" id="view3d-hint">Левая кнопка — вращение, колесо — масштаб, клик — поиск группы.</div>
+          <div class="view3d-error" id="view3d-error" hidden></div>
+        </div>
+        <div class="estimate">
+          <div class="order-form">
+            <label class="field">Номер
+              <input id="f-number" data-header="number" maxlength="80" autocomplete="off">
+            </label>
+            <label class="field">Дата
+              <input id="f-date" data-header="date" type="date">
+            </label>
+            <label class="field grow">Клиент
+              <input id="f-client" data-header="client" maxlength="200" autocomplete="off">
+            </label>
+            <label class="field grow">Объект
+              <input id="f-object" data-header="object_name" maxlength="200" autocomplete="off">
+            </label>
+            <label class="field comment">Комментарий
+              <input id="f-comment" data-header="comment" maxlength="2000" autocomplete="off">
+            </label>
+            <label class="field discount">Скидка заказа, %
+              <input id="f-order-discount" data-header="order_discount" inputmode="decimal" autocomplete="off">
+            </label>
+          </div>
+          <div class="toolbar">
+            <button type="button" id="btn-new">Новая смета</button>
+            <button type="button" id="btn-open">Открыть</button>
+            <button type="button" id="btn-save" class="primary">Сохранить</button>
+            <button type="button" id="btn-dup">Дублировать</button>
+            <button type="button" id="btn-export">Экспорт в xlsx</button>
+            <div class="spacer"></div>
+            <button type="button" id="btn-add" class="primary">Добавить позицию</button>
+          </div>
+          <div class="table-wrap">
+            <table class="grid" id="estimate-table" tabindex="0">
+              <colgroup>
+                <col class="c-n">
+                <col class="c-code">
+                <col>
+                <col class="c-color">
+                <col class="c-unit">
+                <col class="c-mm">
+                <col class="c-mm">
+                <col class="c-qty">
+                <col class="c-price">
+                <col class="c-disc">
+                <col class="c-sum">
+                <col class="c-x">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>№</th>
+                  <th>Код</th>
+                  <th>Имя</th>
+                  <th>Цвет</th>
+                  <th>Ед.</th>
+                  <th title="В сумму не входит">Ширина, мм</th>
+                  <th title="В сумму не входит">Высота, мм</th>
+                  <th class="num">Кол-во</th>
+                  <th class="num">Цена</th>
+                  <th class="num">Скидка %</th>
+                  <th class="num">Сумма</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="estimate-body"></tbody>
+            </table>
+          </div>
+          <div class="totals">
+            <div><span>Сумма строк</span><strong id="sum-lines">0,00</strong></div>
+            <div><span>Итого</span><strong id="sum-total">0,00</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-price" hidden>
+        <div class="toolbar price-toolbar">
+          <label class="field inline">Прайс
+            <select id="price-select"></select>
+          </label>
+          <button type="button" id="btn-activate">Сделать активным</button>
+          <label class="field inline grow">Поиск
+            <input id="price-query" placeholder="код, имя или цвет" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="check"><input type="checkbox" id="price-zero"> показывать без цены</label>
+          <button type="button" id="btn-import">Импорт xlsx</button>
+          <button type="button" id="btn-export-price">Экспорт</button>
+          <button type="button" id="btn-replace">Заменить мои цены ценами из файла</button>
+        </div>
+        <p class="hint" id="price-active-hint"></p>
+        <div class="table-wrap">
+          <table class="grid" id="price-table">
+            <thead>
+              <tr>
+                <th>Код</th>
+                <th>Имя</th>
+                <th>Цвет</th>
+                <th>Ед.</th>
+                <th class="num">Цена файла</th>
+                <th class="num">Моя цена</th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="price-body"></tbody>
+          </table>
+        </div>
+        <div class="table-meta">
+          <span id="price-meta"></span>
+          <button type="button" id="price-more" hidden>Показать ещё</button>
+        </div>
+      </section>
+
+      <section id="view-settings" hidden>
+        <div class="sheet">
+          <h2>Подписи единиц</h2>
+          <p class="hint">Так единица 0, 2, 3 или 4 показывается в смете и в прайсе.</p>
+          <div class="settings-grid" id="unit-fields"></div>
+          <h2>Активный прайс</h2>
+          <p class="hint">Из него берутся цены новых строк сметы. Уже записанные заказы не меняются.</p>
+          <select id="settings-active"></select>
+          <h2>Какой поиск открывает деталь</h2>
+          <p class="hint">Префикс сравнивается с началом имени в активном прайсе. SB находит SB-QR/137. Пустое поле открывает общий поиск.</p>
+          <div class="settings-grid" id="prefix-fields"></div>
+          <button type="button" class="primary" id="btn-save-settings">Сохранить настройки</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <span id="status" role="status">Загрузка…</span>
+      <span class="keys">Ctrl+N новая · Ctrl+S сохранить · Ctrl+F поиск · Delete строка</span>
+    </footer>
+  </div>
+
+  <div class="modal" id="search-modal" hidden>
+    <div class="backdrop" data-close="search"></div>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="search-title">
+      <div class="dialog-head">
+        <h2 id="search-title">Поиск в прайсе <span id="search-list-name"></span></h2>
+        <button type="button" class="ghost" data-close="search" aria-label="Закрыть">×</button>
+      </div>
+      <div class="search-filters">
+        <label class="field">Группа
+          <input id="search-prefix" maxlength="40" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field grow">Код, имя или цвет
+          <input id="search-query" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="check"><input type="checkbox" id="search-zero"> показывать без цены</label>
+      </div>
+      <div class="table-wrap dialog-table">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>Код</th>
+              <th>Имя</th>
+              <th>Цвет</th>
+              <th>Ед.</th>
+              <th class="num">Цена</th>
+            </tr>
+          </thead>
+          <tbody id="search-body"></tbody>
+        </table>
+      </div>
+      <div class="dialog-foot">
+        <span id="search-meta"></span>
+        <button type="button" id="search-more" hidden>Показать ещё</button>
+        <div class="spacer"></div>
+        <label class="field inline">Кол-во
+          <input id="search-qty" value="1" inputmode="decimal" autocomplete="off">
+        </label>
+        <button type="button" class="primary" id="search-add">В смету</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="open-modal" hidden>
+    <div class="backdrop" data-close="open"></div>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="open-title">
+      <div class="dialog-head">
+        <h2 id="open-title">Открыть смету</h2>
+        <button type="button" class="ghost" data-close="open" aria-label="Закрыть">×</button>
+      </div>
+      <div class="table-wrap dialog-table">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>Номер</th>
+              <th>Дата</th>
+              <th>Клиент</th>
+              <th>Объект</th>
+              <th class="num">Итого</th>
+            </tr>
+          </thead>
+          <tbody id="open-body"></tbody>
+        </table>
+      </div>
+      <div class="dialog-foot">
+        <span id="open-meta"></span>
+        <div class="spacer"></div>
+        <button type="button" id="open-delete" class="danger">Удалить</button>
+        <button type="button" class="primary" id="open-do">Открыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="confirm" hidden>
+    <div class="backdrop"></div>
+    <div class="dialog dialog-small" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="dialog-foot">
+        <div class="spacer"></div>
+        <button type="button" id="confirm-cancel">Отмена</button>
+        <button type="button" class="primary" id="confirm-ok">Да</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/three.min.js"></script>
+  <script src="money.js"></script>
+  <script src="scene.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
